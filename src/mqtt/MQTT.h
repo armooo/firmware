@@ -57,7 +57,7 @@ class MQTT : private concurrency::OSThread
      * Note: for messages we are forwarding on the mesh that we can't find the channel for (because we don't have the keys), we
      * can not forward those messages to the cloud - because no way to find a global channel ID.
      */
-    void onSend(const meshtastic_MeshPacket &mp, const meshtastic_MeshPacket &mp_decoded, ChannelIndex chIndex);
+    void onSend(const meshtastic_MeshPacket &mp);
 
     /** Attempt to connect to server if necessary
      */

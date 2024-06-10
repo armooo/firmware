@@ -261,7 +261,7 @@ ErrorCode Router::send(meshtastic_MeshPacket *p)
 #if !MESHTASTIC_EXCLUDE_MQTT
         // Only publish to MQTT if we're the original transmitter of the packet
         if (moduleConfig.mqtt.enabled && p->from == nodeDB->getNodeNum() && mqtt) {
-            mqtt->onSend(*p, *p_decoded, chIndex);
+            mqtt->onSend(*p);
         }
 #endif
         packetPool.release(p_decoded);
@@ -475,13 +475,11 @@ void Router::handleReceived(meshtastic_MeshPacket *p, RxSource src)
     // call modules here
     if (!skipHandle) {
         MeshModule::callModules(*p, src);
+    }
 
 #if !MESHTASTIC_EXCLUDE_MQTT
-        // After potentially altering it, publish received message to MQTT if we're not the original transmitter of the packet
-        if (decoded && moduleConfig.mqtt.enabled && getFrom(p) != nodeDB->getNodeNum() && mqtt)
-            mqtt->onSend(*p_encrypted, *p, p->channel);
+    // After potentially altering it, publish received message to MQTT if we're not the original transmitter of the packet
 #endif
-    }
 
     packetPool.release(p_encrypted); // Release the encrypted packet
 }
@@ -497,10 +495,15 @@ void Router::perhapsHandleReceived(meshtastic_MeshPacket *p)
         LOG_DEBUG("Incoming message was filtered 0x%x\n", p->from);
     }
 
+    if (moduleConfig.mqtt.enabled &&  mqtt) {
+        mqtt->onSend(*p);
+    }
+
     // Note: we avoid calling shouldFilterReceived if we are supposed to ignore certain nodes - because some overrides might
     // cache/learn of the existence of nodes (i.e. FloodRouter) that they should not
     if (!ignore)
         handleReceived(p);
+
 
     packetPool.release(p);
 }

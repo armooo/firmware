@@ -475,72 +475,43 @@ void MQTT::publishQueuedMessages()
     }
 }
 
-void MQTT::onSend(const meshtastic_MeshPacket &mp, const meshtastic_MeshPacket &mp_decoded, ChannelIndex chIndex)
+void MQTT::onSend(const meshtastic_MeshPacket &mp)
 {
-    if (mp.via_mqtt)
-        return; // Don't send messages that came from MQTT back into MQTT
+    //if (mp.via_mqtt)
+    //    return; // Don't send messages that came from MQTT back into MQTT
 
-    auto &ch = channels.getByIndex(chIndex);
+    const char *channelId = "raw";
 
-    if (&mp_decoded.decoded && strcmp(moduleConfig.mqtt.address, default_mqtt_address) == 0 &&
-        (mp_decoded.decoded.portnum == meshtastic_PortNum_RANGE_TEST_APP ||
-         mp_decoded.decoded.portnum == meshtastic_PortNum_DETECTION_SENSOR_APP)) {
-        LOG_DEBUG("MQTT onSend - Ignoring range test or detection sensor message on public mqtt\n");
-        return;
-    }
+    meshtastic_ServiceEnvelope *env = mqttPool.allocZeroed();
+    env->channel_id = (char *)channelId;
+    env->gateway_id = owner.id;
 
-    if (ch.settings.uplink_enabled) {
-        const char *channelId = channels.getGlobalId(chIndex); // FIXME, for now we just use the human name for the channel
+    env->packet = (meshtastic_MeshPacket *)&mp;
+    LOG_DEBUG("encrypted message\n");
 
-        meshtastic_ServiceEnvelope *env = mqttPool.allocZeroed();
-        env->channel_id = (char *)channelId;
-        env->gateway_id = owner.id;
+    if (moduleConfig.mqtt.proxy_to_client_enabled || this->isConnectedDirectly()) {
+        // FIXME - this size calculation is super sloppy, but it will go away once we dynamically alloc meshpackets
+        static uint8_t bytes[meshtastic_MeshPacket_size + 64];
+        size_t numBytes = pb_encode_to_bytes(bytes, sizeof(bytes), &meshtastic_ServiceEnvelope_msg, env);
 
-        LOG_DEBUG("MQTT onSend - Publishing ");
-        if (moduleConfig.mqtt.encryption_enabled) {
-            env->packet = (meshtastic_MeshPacket *)&mp;
-            LOG_DEBUG("encrypted message\n");
-        } else {
-            env->packet = (meshtastic_MeshPacket *)&mp_decoded;
-            LOG_DEBUG("portnum %i message\n", env->packet->decoded.portnum);
+        std::string topic = std::string("raw/2/e/") + channelId + "/" + owner.id;
+        LOG_DEBUG("MQTT Publish %s, %u bytes\n", topic.c_str(), numBytes);
+
+        publish(topic.c_str(), bytes, numBytes, false);
+
+    } else {
+        LOG_INFO("MQTT not connected, queueing packet\n");
+        if (mqttQueue.numFree() == 0) {
+            LOG_WARN("NOTE: MQTT queue is full, discarding oldest\n");
+            meshtastic_ServiceEnvelope *d = mqttQueue.dequeuePtr(0);
+            if (d)
+                mqttPool.release(d);
         }
-
-        if (moduleConfig.mqtt.proxy_to_client_enabled || this->isConnectedDirectly()) {
-            // FIXME - this size calculation is super sloppy, but it will go away once we dynamically alloc meshpackets
-            static uint8_t bytes[meshtastic_MeshPacket_size + 64];
-            size_t numBytes = pb_encode_to_bytes(bytes, sizeof(bytes), &meshtastic_ServiceEnvelope_msg, env);
-
-            std::string topic = cryptTopic + channelId + "/" + owner.id;
-            LOG_DEBUG("MQTT Publish %s, %u bytes\n", topic.c_str(), numBytes);
-
-            publish(topic.c_str(), bytes, numBytes, false);
-
-#ifndef ARCH_NRF52 // JSON is not supported on nRF52, see issue #2804
-            if (moduleConfig.mqtt.json_enabled) {
-                // handle json topic
-                auto jsonString = this->meshPacketToJson((meshtastic_MeshPacket *)&mp_decoded);
-                if (jsonString.length() != 0) {
-                    std::string topicJson = jsonTopic + channelId + "/" + owner.id;
-                    LOG_INFO("JSON publish message to %s, %u bytes: %s\n", topicJson.c_str(), jsonString.length(),
-                             jsonString.c_str());
-                    publish(topicJson.c_str(), jsonString.c_str(), false);
-                }
-            }
-#endif // ARCH_NRF52
-        } else {
-            LOG_INFO("MQTT not connected, queueing packet\n");
-            if (mqttQueue.numFree() == 0) {
-                LOG_WARN("NOTE: MQTT queue is full, discarding oldest\n");
-                meshtastic_ServiceEnvelope *d = mqttQueue.dequeuePtr(0);
-                if (d)
-                    mqttPool.release(d);
-            }
-            // make a copy of serviceEnvelope and queue it
-            meshtastic_ServiceEnvelope *copied = mqttPool.allocCopy(*env);
-            assert(mqttQueue.enqueue(copied, 0));
-        }
-        mqttPool.release(env);
+        // make a copy of serviceEnvelope and queue it
+        meshtastic_ServiceEnvelope *copied = mqttPool.allocCopy(*env);
+        assert(mqttQueue.enqueue(copied, 0));
     }
+    mqttPool.release(env);
 }
 
 void MQTT::perhapsReportToMap()
