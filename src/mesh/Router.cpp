@@ -610,13 +610,13 @@ void Router::handleReceived(meshtastic_MeshPacket *p, RxSource src)
     // call modules here
     if (!skipHandle) {
         MeshModule::callModules(*p, src);
+    }
 
 #if !MESHTASTIC_EXCLUDE_MQTT
-        // After potentially altering it, publish received message to MQTT if we're not the original transmitter of the packet
-        if (decoded && moduleConfig.mqtt.enabled && getFrom(p) != nodeDB->getNodeNum() && mqtt)
-            mqtt->onSend(*p_encrypted, *p, p->channel);
+    // After potentially altering it, publish received message to MQTT if we're not the original transmitter of the packet
+    if (decoded && moduleConfig.mqtt.enabled && getFrom(p) != nodeDB->getNodeNum() && mqtt)
+        mqtt->onSend(*p_encrypted, *p, p->channel);
 #endif
-    }
 
     packetPool.release(p_encrypted); // Release the encrypted packet
 }
