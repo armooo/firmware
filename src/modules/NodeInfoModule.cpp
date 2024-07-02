@@ -35,6 +35,11 @@ bool NodeInfoModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, mes
 
 void NodeInfoModule::sendOurNodeInfo(NodeNum dest, bool wantReplies, uint8_t channel, bool _shorterTimeout)
 {
+    // Role_REPEATER should not make a node info storm.
+    if (config.device.role == meshtastic_Config_DeviceConfig_Role_REPEATER && wantReplies) {
+        return;
+    }
+
     // cancel any not yet sent (now stale) position packets
     if (prevPacketId) // if we wrap around to zero, we'll simply fail to cancel in that rare case (no big deal)
         service->cancelSending(prevPacketId);
@@ -97,8 +102,8 @@ NodeInfoModule::NodeInfoModule()
 
 int32_t NodeInfoModule::runOnce()
 {
-    // If we changed channels, ask everyone else for their latest info
-    bool requestReplies = currentGeneration != radioGeneration;
+    // If we changed channels, ask everyone else for their latest info unless we are a REPEATER. Node info storms are bad.
+    bool requestReplies = (currentGeneration != radioGeneration);
     currentGeneration = radioGeneration;
 
     if (airTime->isTxAllowedAirUtil() && config.device.role != meshtastic_Config_DeviceConfig_Role_CLIENT_HIDDEN) {

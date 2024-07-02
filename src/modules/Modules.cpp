@@ -230,11 +230,16 @@ void setupModules()
 #if !MESHTASTIC_EXCLUDE_ADMIN
         adminModule = new AdminModule();
 #endif
+        // Start the NodeInfoModule but do not assign it to nodeInfoModule. Now noone can call sendOurNodeInfo but we will still run the background thread.
+        new NodeInfoModule();
 #if HAS_TELEMETRY
         new DeviceTelemetryModule();
 #endif
 #if !MESHTASTIC_EXCLUDE_TRACEROUTE
         traceRouteModule = new TraceRouteModule();
+#endif
+#if !MESHTASTIC_EXCLUDE_NEIGHBORINFO
+        neighborInfoModule = new NeighborInfoModule();
 #endif
     }
     // NOTE! This module must be added LAST because it likes to check for replies from other modules and avoid sending extra
