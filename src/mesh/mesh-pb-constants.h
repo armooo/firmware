@@ -20,7 +20,7 @@
 
 /// max number of nodes allowed in the mesh
 #ifndef MAX_NUM_NODES
-#define MAX_NUM_NODES 100
+#define MAX_NUM_NODES 256
 #endif
 
 /// Max number of channels allowed
