@@ -307,7 +307,7 @@ bool RF95Interface::isChannelActive()
     setStandby(); // needed for smooth transition
     result = lora->scanChannel();
 
-    if (result == RADIOLIB_PREAMBLE_DETECTED) {
+    if (result == RADIOLIB_PREAMBLE_DETECTED || result == RADIOLIB_LORA_DETECTED){
         // LOG_DEBUG("Channel is busy!\n");
         return true;
     }

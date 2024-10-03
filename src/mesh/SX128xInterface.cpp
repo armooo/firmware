@@ -279,7 +279,7 @@ template <typename T> bool SX128xInterface<T>::isChannelActive()
 
     setStandby();
     result = lora.scanChannel();
-    if (result == RADIOLIB_LORA_DETECTED)
+    if (result == RADIOLIB_LORA_DETECTED || result == RADIOLIB_PREAMBLE_DETECTED)
         return true;
     if (result != RADIOLIB_CHANNEL_FREE)
         LOG_ERROR("SX128X scanChannel %s%d\n", radioLibErr, result);

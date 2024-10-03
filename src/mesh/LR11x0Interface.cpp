@@ -250,7 +250,7 @@ template <typename T> bool LR11x0Interface<T>::isChannelActive()
 
     setStandby();
     result = lora.scanChannel();
-    if (result == RADIOLIB_LORA_DETECTED)
+    if (result == RADIOLIB_LORA_DETECTED || result == RADIOLIB_PREAMBLE_DETECTED)
         return true;
 
     assert(result != RADIOLIB_ERR_WRONG_MODEM);

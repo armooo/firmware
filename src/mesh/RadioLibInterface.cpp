@@ -270,7 +270,7 @@ void RadioLibInterface::onNotify(uint32_t notification)
                 // LOG_DEBUG("Currently Rx/Tx-ing: set random delay\n");
                 setTransmitDelay(); // currently Rx/Tx-ing: reset random delay
             } else {
-                if (isChannelActive()) { // check if there is currently a LoRa packet on the channel
+                if (isCsmaCaActive()) { // check if there is currently a LoRa packet on the channel
                     // LOG_DEBUG("Channel is active, try receiving first.\n");
                     startReceive(); // try receiving this packet, afterwards we'll be trying to transmit again
                     setTransmitDelay();
@@ -292,6 +292,25 @@ void RadioLibInterface::onNotify(uint32_t notification)
     default:
         assert(0); // We expected to receive a valid notification from the ISR
     }
+}
+
+bool RadioLibInterface::isCsmaCaActive() {
+    // This is LMAC-1 from https://wands.sg/publications/full_list/papers/MobiCom_20_1.pdf
+
+    // We use the node and packet id to get our backoff count vs using a random
+    // id. This way way I don't need to track extra state.
+    // We mod 60 + 4 to get the Nbo 4 to 64 and add 12 for the DIFS slots.
+
+    meshtastic_MeshPacket *txp = txQueue.getFront();
+    auto backoff = (nodeDB->getNodeNum() ^ txp->id) % 60;
+    LOG_DEBUG("CSMA/CA %i\n", backoff);
+    for (int i=0; i < backoff + 12 + 4; i++) {
+        if (isChannelActive()) {
+            LOG_DEBUG("CSMA/CA failed\n");
+            return true;
+        }
+    }
+    return false;
 }
 
 void RadioLibInterface::setTransmitDelay()

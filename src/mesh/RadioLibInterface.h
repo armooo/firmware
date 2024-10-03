@@ -158,6 +158,7 @@ class RadioLibInterface : public RadioInterface, protected concurrency::Notified
     static void timerCallback(void *p1, uint32_t p2);
 
     virtual void onNotify(uint32_t notification) override;
+    bool isCsmaCaActive();
 
     /** start an immediate transmit
      *  This method is virtual so subclasses can hook as needed, subclasses should not call directly
